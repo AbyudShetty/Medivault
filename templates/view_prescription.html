@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row">
+  <div class="col-12 mb-3">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">← Back to Dashboard</a>
+  </div>
+</div>
+
+<div class="row">
+  <!-- Prescription Image -->
+  <div class="col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="text-primary mb-3">Prescription Image</h5>
+        <img src="{{ url_for('static', filename=prescription.file_path) }}" 
+             class="img-fluid rounded shadow-sm" 
+             alt="Prescription">
+      </div>
+    </div>
+  </div>
+  
+  <!-- Prescription Details -->
+  <div class="col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="text-primary mb-3">Prescription Details</h5>
+        
+        <div class="mb-3">
+          <h6 class="text-secondary">Issue / Condition</h6>
+          <p class="lead">{{ prescription.issue }}</p>
+        </div>
+        
+        {% if prescription.description %}
+        <div class="mb-3">
+          <h6 class="text-secondary">Additional Notes</h6>
+          <p>{{ prescription.description }}</p>
+        </div>
+        {% endif %}
+        
+        <div class="mb-3">
+          <h6 class="text-secondary">Doctor</h6>
+          <p>{{ prescription.doctor_name or 'Not specified' }}</p>
+        </div>
+        
+        <div class="mb-3">
+          <h6 class="text-secondary">Date</h6>
+          <p>{{ prescription.prescription_date.strftime('%d %b %Y') if prescription.prescription_date else 'Not specified' }}</p>
+        </div>
+        
+        <div class="mb-3">
+          <h6 class="text-secondary">Uploaded On</h6>
+          <p>{{ prescription.created_at.strftime('%d %b %Y at %I:%M %p') }}</p>
+        </div>
+
+        <div class="mb-3">
+          <h6 class="text-secondary">⏱️ Days Since Last Similar Issue</h6>
+          <p>
+            {% if prescription.days_since_last_issue >= 0 %}
+              <span class="badge bg-info">{{ prescription.days_since_last_issue }} days ago</span>
+            {% else %}
+              <span class="badge bg-secondary">First time with this issue</span>
+            {% endif %}
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Medicines List -->
+<div class="row mt-4">
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="text-primary mb-3">💊 Prescribed Medicines</h5>
+        
+        {% if medicines|length > 0 %}
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead class="table-light">
+              <tr>
+                <th>Medicine Name</th>
+                <th>Dosage</th>
+                <th>Frequency</th>
+                <th>Duration</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for med in medicines %}
+              <tr>
+                <td><strong>{{ med.medicine_name }}</strong></td>
+                <td>{{ med.dosage or '-' }}</td>
+                <td>{{ med.frequency or '-' }}</td>
+                <td>{{ med.duration or '-' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+          No medicines extracted from this prescription. The OCR might not have detected medicine details clearly.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- OCR Extracted Text (Optional - for debugging) -->
+{% if prescription.extracted_text %}
+<div class="row mt-4">
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h6 class="text-secondary mb-3">📄 Raw OCR Text (for reference)</h6>
+        <details>
+          <summary class="btn btn-sm btn-outline-secondary">Show/Hide Extracted Text</summary>
+          <pre class="mt-3 p-3 bg-light rounded" style="font-size: 0.85rem; max-height: 300px; overflow-y: auto;">{{ prescription.extracted_text }}</pre>
+        </details>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,25 @@
+body {
+  background-color: #f8f9fa;
+  font-family: 'Poppins', sans-serif;
+}
+
+.navbar-brand img {
+  filter: brightness(0.9);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #007bff, #0056d2);
+  border: none;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #0056d2, #003d99);
+}
+
+.card {
+  border-radius: 15px;
+}
+
+.alert {
+  border-radius: 10px;
+}

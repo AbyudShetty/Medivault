@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="text-center">
+  <h1 class="display-4 fw-bold text-primary">Welcome to MediVault</h1>
+  <p class="lead text-muted">Your digital prescription vault for safe and smart healthcare.</p>
+  <img src="{{ url_for('static', filename='img/hospital-bg.jpg') }}" class="img-fluid rounded shadow my-4" style="max-height: 350px;">
+  <div>
+    <a href="{{ url_for('signup') }}" class="btn btn-primary btn-lg me-3">Get Started</a>
+    <a href="{{ url_for('login') }}" class="btn btn-outline-primary btn-lg">Login</a>
+  </div>
+</div>
+{% endblock %}

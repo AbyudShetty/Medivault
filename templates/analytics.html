@@ -1,0 +1,377 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container my-4">
+  <!-- Header -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary mb-3">
+        ← Back to Dashboard
+      </a>
+      <h2 class="text-primary">📊 Medical Analytics Dashboard</h2>
+      <p class="text-muted">Insights from your prescription history using advanced database queries</p>
+    </div>
+  </div>
+
+  <!-- Monthly Prescription Trends -->
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <h5 class="card-title text-primary mb-3">
+      📈 Monthly Prescription Trends
+    </h5>
+    <p class="text-muted small mb-3">
+      <code>AGGREGATE Query: GROUP BY month with COUNT</code>
+    </p>
+
+    {% if monthly_stats and monthly_stats|length > 0 %}
+      {% set max_count = monthly_stats | map(attribute='count') | max %}
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Month</th>
+              <th>Prescriptions</th>
+              <th>Visual Trend</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for stat in monthly_stats %}
+            <tr>
+              <td><strong>{{ stat.month }}</strong></td>
+              <td>
+                <span class="badge bg-primary rounded-pill">{{ stat.count }}</span>
+              </td>
+              <td style="width: 60%;">
+                <div class="progress" style="height: 25px;">
+                  <div 
+                    class="progress-bar progress-bar-striped bg-primary"
+                    role="progressbar"
+                    style="width: {{ (stat.count / max_count * 100) | round(1) }}%; transition: width 0.8s ease;"
+                    aria-valuenow="{{ stat.count }}"
+                    aria-valuemin="0"
+                    aria-valuemax="{{ max_count }}">
+                    {{ stat.count }}
+                  </div>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="alert alert-info">
+        <strong>ℹ️ No Data Yet</strong><br>
+        No monthly data available. Start uploading prescriptions to see trends!
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+
+  <!-- Top Medicine Usage -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <h5 class="card-title text-primary mb-3">
+        💊 Most Frequently Used Medicines
+      </h5>
+      <p class="text-muted small mb-3">
+        <code>STORED PROCEDURE with JOIN + GROUP BY + COUNT + AVG</code>
+      </p>
+      
+      {% if medicine_stats and medicine_stats|length > 0 %}
+        <div class="table-responsive">
+          <table class="table table-striped">
+            <thead class="table-dark">
+              <tr>
+                <th>#</th>
+                <th>Medicine Name</th>
+                <th>Times Used</th>
+                <th>Dosages</th>
+                <th>Last Used</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for med in medicine_stats %}
+              <tr>
+                <td>{{ loop.index }}</td>
+                <td><strong class="text-primary">{{ med.medicine_name }}</strong></td>
+                <td>
+                  <span class="badge bg-success rounded-pill">{{ med.usage_count }} times</span>
+                </td>
+                <td>
+                  <span class="badge bg-info text-dark">{{ med.dosages_used or 'Various' }}</span>
+                </td>
+                <td>
+                  <small class="text-muted">
+                    {% if med.avg_days_since_last_use %}
+                      {{ med.avg_days_since_last_use|int }} days ago
+                    {% else %}
+                      Recently
+                    {% endif %}
+                  </small>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="alert alert-info">
+          <strong>ℹ️ No Data Yet</strong><br>
+          No medicine data available. Upload prescriptions to see statistics!
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Top Health Issues -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <h5 class="card-title text-primary mb-3">
+        🏥 Most Common Health Issues
+      </h5>
+      <p class="text-muted small mb-3">
+        <code>AGGREGATE Query: GROUP BY issue + COUNT + ORDER BY</code>
+      </p>
+      
+      {% if top_issues and top_issues|length > 0 %}
+        <div class="row g-3">
+          {% for issue in top_issues %}
+          <div class="col-md-6 col-lg-4">
+            <div class="card border-primary h-100">
+              <div class="card-body">
+                <h6 class="text-primary mb-2">{{ issue.issue }}</h6>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <span class="badge bg-primary">{{ issue.count }} prescriptions</span>
+                  <span class="text-muted issue-percentage" 
+                        data-count="{{ issue.count }}"
+                        data-total="{{ top_issues|sum(attribute='count') }}"></span>
+                </div>
+                <div class="progress" style="height: 10px;">
+                  <div class="progress-bar bg-success issue-bar" 
+                       role="progressbar"
+                       data-count="{{ issue.count }}"
+                       data-max="{{ top_issues[0].count }}">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="alert alert-info">
+          <strong>ℹ️ No Data Yet</strong><br>
+          No health issue data available.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Complex Prescriptions -->
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <h5 class="card-title text-primary mb-3">
+      🔍 Complex Prescriptions (Above Average Medicines)
+    </h5>
+    <p class="text-muted small mb-3">
+      <code>NESTED QUERY: Subquery with HAVING + AVG in nested SELECT</code>
+    </p>
+    {% if complex_prescriptions and complex_prescriptions|length > 0 %}
+      <div class="table-responsive">
+        <table class="table table-striped">
+          <thead class="table-dark">
+            <tr>
+              <th>Issue</th>
+              <th>Doctor</th>
+              <th>Date</th>
+              <th>Medicine Count</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for pres in complex_prescriptions %}
+            <tr>
+              <td><strong>{{ pres.issue }}</strong></td>
+              <td>{{ pres.doctor_name or 'Not specified' }}</td>
+              <td>{{ pres.prescription_date.strftime('%d %b %Y') if pres.prescription_date else 'N/A' }}</td>
+              <td><span class="badge bg-warning text-dark">{{ pres.medicine_count }} medicines</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="alert alert-info">No data yet or all prescriptions have below-average medicine counts.</div>
+    {% endif %}
+  </div>
+</div>
+
+  <!-- SQL Query Reference Section -->
+  <div class="card shadow-sm mb-4 bg-light">
+    <div class="card-body">
+      <h5 class="card-title text-primary mb-3">
+        🔍 Database Queries Used
+      </h5>
+      <p class="text-muted small mb-3">
+        Click on each section to view the actual SQL queries
+      </p>
+      
+      <div class="accordion" id="queryAccordion">
+        <!-- Query 1 -->
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" 
+                    data-bs-toggle="collapse" data-bs-target="#collapseOne">
+              1️⃣ Monthly Trends - AGGREGATE with GROUP BY
+            </button>
+          </h2>
+          <div id="collapseOne" class="accordion-collapse collapse" data-bs-parent="#queryAccordion">
+            <div class="accordion-body">
+              <pre class="bg-dark text-light p-3 rounded"><code>SELECT 
+    DATE_FORMAT(created_at, '%Y-%m') as month,
+    COUNT(*) as count
+FROM prescription
+WHERE user_id = ?
+GROUP BY month
+ORDER BY month DESC
+LIMIT 12;</code></pre>
+              <p class="mb-0 mt-2 text-muted">
+                <strong>Concepts:</strong> DATE_FORMAT, COUNT, GROUP BY, ORDER BY
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Query 2 -->
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" 
+                    data-bs-toggle="collapse" data-bs-target="#collapseTwo">
+              2️⃣ Medicine Stats - STORED PROCEDURE with JOIN + AGGREGATE
+            </button>
+          </h2>
+          <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#queryAccordion">
+            <div class="accordion-body">
+              <pre class="bg-dark text-light p-3 rounded"><code>CREATE PROCEDURE GetMedicineStats(IN userId INT)
+BEGIN
+    SELECT 
+        pm.medicine_name,
+        COUNT(*) as usage_count,
+        GROUP_CONCAT(DISTINCT pm.dosage) as dosages_used,
+        AVG(DATEDIFF(NOW(), p.created_at)) as avg_days
+    FROM prescription p
+    INNER JOIN prescription_medication pm 
+        ON p.prescription_id = pm.prescription_id
+    WHERE p.user_id = userId
+    GROUP BY pm.medicine_name
+    ORDER BY usage_count DESC
+    LIMIT 5;
+END;</code></pre>
+              <p class="mb-0 mt-2 text-muted">
+                <strong>Concepts:</strong> STORED PROCEDURE, INNER JOIN, COUNT, AVG, GROUP_CONCAT, GROUP BY
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Query 3 -->
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" 
+                    data-bs-toggle="collapse" data-bs-target="#collapseThree">
+              3️⃣ Top Issues - AGGREGATE with GROUP BY + ORDER BY
+            </button>
+          </h2>
+          <div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#queryAccordion">
+            <div class="accordion-body">
+              <pre class="bg-dark text-light p-3 rounded"><code>SELECT 
+    issue, 
+    COUNT(*) as count
+FROM prescription
+WHERE user_id = ?
+GROUP BY issue
+ORDER BY count DESC
+LIMIT 5;</code></pre>
+              <p class="mb-0 mt-2 text-muted">
+                <strong>Concepts:</strong> COUNT, GROUP BY, ORDER BY DESC, LIMIT
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Back Button -->
+  <div class="text-center mb-4">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg">
+      Return to Dashboard
+    </a>
+  </div>
+</div>
+
+<style>
+.accordion-button:not(.collapsed) {
+  background: linear-gradient(135deg, #0d6efd, #0a58ca);
+  color: white;
+}
+
+.accordion-button:not(.collapsed)::after {
+  filter: brightness(0) invert(1);
+}
+
+.card {
+  border-radius: 12px;
+  transition: transform 0.2s;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+pre {
+  border-radius: 8px;
+  font-size: 0.9rem;
+  overflow-x: auto;
+}
+
+.badge {
+  font-size: 0.85rem;
+  padding: 0.4em 0.8em;
+}
+
+.progress-bar {
+  transition: width 0.6s ease;
+}
+</style>
+
+<script>
+// Calculate and set progress bar widths dynamically using JavaScript
+document.addEventListener('DOMContentLoaded', function() {
+  // Monthly trends progress bars
+  document.querySelectorAll('.progress-bar[data-count]').forEach(function(bar) {
+    const count = parseFloat(bar.getAttribute('data-count'));
+    const max = parseFloat(bar.getAttribute('data-max'));
+    const percentage = (count / max * 100).toFixed(0);
+    bar.style.width = percentage + '%';
+  });
+  
+  // Issue percentages
+  document.querySelectorAll('.issue-percentage').forEach(function(span) {
+    const count = parseFloat(span.getAttribute('data-count'));
+    const total = parseFloat(span.getAttribute('data-total'));
+    const percentage = (count / total * 100).toFixed(0);
+    span.textContent = percentage + '%';
+  });
+  
+  // Issue progress bars
+  document.querySelectorAll('.issue-bar').forEach(function(bar) {
+    const count = parseFloat(bar.getAttribute('data-count'));
+    const max = parseFloat(bar.getAttribute('data-max'));
+    const percentage = (count / max * 100).toFixed(0);
+    bar.style.width = percentage + '%';
+  });
+});
+</script>
+{% endblock %}

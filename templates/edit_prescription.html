@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row">
+  <div class="col-12 mb-3">
+    <a href="{{ url_for('view_prescription', prescription_id=prescription.prescription_id) }}" class="btn btn-outline-secondary">
+      ← Back to Prescription
+    </a>
+  </div>
+</div>
+
+<div class="card shadow-sm p-4">
+  <h4 class="text-primary mb-4">✏️ Edit Prescription Details</h4>
+  
+  <form method="POST">
+    <div class="mb-3">
+      <label for="issue" class="form-label">Issue / Condition</label>
+      <input type="text" class="form-control" id="issue" name="issue" 
+             value="{{ prescription.issue }}" required>
+    </div>
+    
+    <div class="mb-3">
+      <label for="description" class="form-label">Additional Notes</label>
+      <textarea class="form-control" id="description" name="description" rows="3">{{ prescription.description or '' }}</textarea>
+    </div>
+    
+    <div class="mb-3">
+      <label for="doctor_name" class="form-label">Doctor Name</label>
+      <input type="text" class="form-control" id="doctor_name" name="doctor_name" 
+             value="{{ prescription.doctor_name or '' }}">
+    </div>
+    
+    <div class="alert alert-info">
+      <strong>Note:</strong> To edit medicines, please delete and re-upload the prescription with corrected information.
+    </div>
+    
+    <button type="submit" class="btn btn-primary">
+      💾 Save Changes
+    </button>
+    <a href="{{ url_for('view_prescription', prescription_id=prescription.prescription_id) }}" class="btn btn-secondary">
+      Cancel
+    </a>
+  </form>
+</div>
+{% endblock %}

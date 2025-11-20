@@ -1,0 +1,294 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 class="text-primary">Welcome, {{ name }} 👋</h2>
+<p class="text-muted">Manage your prescriptions and medical history</p>
+
+<!-- Upload Prescription Card -->
+<div class="card shadow-sm p-4 my-4">
+  <h5>📤 Upload New Prescription</h5>
+  <p>Triple OCR + AI analysis (Tesseract + EasyOCR + Google Vision)</p>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+    <img src="{{ url_for('static', filename='img/upload-icon.png') }}" height="20" class="me-2" onerror="this.style.display='none'">
+    Upload Prescription
+  </button>
+</div>
+
+<!-- AI Search Card -->
+<div class="card shadow-sm p-4 my-4">
+  <h5>🤖 AI-Powered Search</h5>
+  <p class="text-muted">Search by medicine name or issue</p>
+  <div class="input-group">
+    <input type="text" id="aiQuery" class="form-control" placeholder="e.g., 'Betaloc', 'tooth pain'">
+    <button class="btn btn-primary" onclick="searchPrescriptions()">
+      🔍 Search
+    </button>
+  </div>
+  <div id="searchResults" class="mt-3"></div>
+</div>
+
+<!-- Statistics Card (AGGREGATE QUERIES) -->
+<div class="card shadow-sm p-4 my-4 bg-light">
+  <h5>📊 Your Medical Statistics</h5>
+  <div class="row text-center mt-3">
+    <div class="col-md-3">
+      <h3 class="text-primary">{{ stats.total_prescriptions or 0 }}</h3>
+      <p class="text-muted">Total Prescriptions</p>
+    </div>
+    <div class="col-md-3">
+      <h3 class="text-success">{{ stats.total_doctors or 0 }}</h3>
+      <p class="text-muted">Doctors Visited</p>
+    </div>
+    <div class="col-md-3">
+      <h3 class="text-info">{{ stats.active_months or 0 }}</h3>
+      <p class="text-muted">Active Months</p>
+    </div>
+      <div class="col-md-3">
+      <h3 class="text-warning">{{ stats.total_medicines or 0 }}</h3>
+      <p class="text-muted">💊 Total Medicines</p>
+    </div>
+  </div>
+  <a href="{{ url_for('analytics') }}" class="btn btn-outline-primary btn-sm mt-2">
+    View Detailed Analytics →
+  </a>
+</div>
+
+<!-- Prescription Gallery -->
+<div class="card shadow-sm p-4 my-4">
+  <h5>📋 Your Prescription History</h5>
+  <div class="row g-3 mt-2">
+    {% for pres in prescriptions %}
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card h-100 shadow-sm">
+          <img src="{{ url_for('static', filename=pres.file_path) }}" 
+               class="card-img-top prescription-img" 
+               style="height:180px; object-fit:cover; cursor: pointer;" 
+               alt="Prescription"
+               data-prescription-id="{{ pres.prescription_id }}">
+          <div class="card-body">
+            <h6 class="text-primary">{{ pres.issue }}</h6>
+            <p class="text-muted mb-1 small">
+              <strong>Doctor:</strong> {{ pres.doctor_name or 'Not specified' }}
+            </p>
+            <p class="text-muted mb-1 small">
+              <strong>Date:</strong> {{ pres.prescription_date.strftime('%d %b %Y') if pres.prescription_date else pres.created_at.strftime('%d %b %Y') }}
+            </p>
+            <p class="text-muted mb-1 small">
+              <strong>Medicines:</strong> {{ pres.actual_medicine_count or 0 }}
+            </p>
+              <div class="btn-group w-100 mt-2">
+              <a href="{{ url_for('view_prescription', prescription_id=pres.prescription_id) }}" 
+                 class="btn btn-sm btn-outline-primary">
+                View
+              </a>
+              <a href="{{ url_for('edit_prescription', prescription_id=pres.prescription_id) }}" 
+                 class="btn btn-sm btn-outline-warning">
+                Edit
+              </a>
+              <button class="btn btn-sm btn-outline-danger delete-btn" 
+                      data-prescription-id="{{ pres.prescription_id }}">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+    {% if prescriptions|length == 0 %}
+      <div class="col-12">
+        <p class="text-muted text-center mt-3">
+          No prescriptions yet. Upload your first prescription above!
+        </p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Upload Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content p-4">
+      <h5 class="modal-title text-primary mb-3">Upload Prescription</h5>
+      <form id="uploadForm" enctype="multipart/form-data">
+        <div class="mb-3">
+          <label for="issue" class="form-label">
+            What was this for? <span class="text-danger">*</span>
+          </label>
+          <input type="text" name="issue" id="issue" class="form-control" 
+                 placeholder="e.g., tooth pain, fever, cold" required>
+        </div>
+        
+        <div class="mb-3">
+          <label for="description" class="form-label">Additional details (optional)</label>
+          <textarea name="description" id="description" class="form-control" rows="2" 
+                    placeholder="Any extra information..."></textarea>
+        </div>
+        
+        <div class="mb-3">
+          <label for="prescription" class="form-label">
+            Prescription Image <span class="text-danger">*</span>
+          </label>
+          <input type="file" name="file" class="form-control" id="prescription" accept="image/*" required>
+        </div>
+        
+
+        <button type="submit" class="btn btn-primary w-100" id="uploadBtn">
+          🚀 Upload & Analyze with AI
+        </button>
+      </form>
+      <div id="uploadStatus" class="mt-3"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let isUploading = false;
+
+// Upload prescription
+document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (isUploading) return;
+  isUploading = true;
+  
+  const formData = new FormData(e.target);
+  const statusDiv = document.getElementById('uploadStatus');
+  const uploadBtn = document.getElementById('uploadBtn');
+  
+  uploadBtn.disabled = true;
+  uploadBtn.innerHTML = '⏳ Processing with Triple OCR + AI...';
+  statusDiv.innerHTML = '<div class="alert alert-info">Analyzing prescription with 3 OCR engines + AI...</div>';
+  
+  try {
+    const res = await fetch('/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+    
+    if (data.status === 'success') {
+      statusDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      statusDiv.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+      uploadBtn.disabled = false;
+      uploadBtn.innerHTML = '🚀 Upload & Analyze with AI';
+      isUploading = false;
+    }
+  } catch (error) {
+    statusDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+    uploadBtn.disabled = false;
+    uploadBtn.innerHTML = '🚀 Upload & Analyze with AI';
+    isUploading = false;
+  }
+});
+
+// AI Search using stored procedure
+async function searchPrescriptions() {
+  const query = document.getElementById('aiQuery').value.trim();
+  const resultsDiv = document.getElementById('searchResults');
+  
+  if (!query) {
+    resultsDiv.innerHTML = '<div class="alert alert-warning">Please enter a search query</div>';
+    return;
+  }
+  
+  resultsDiv.innerHTML = '<div class="alert alert-info">🔍 Searching with AI...</div>';
+  
+  try {
+    const res = await fetch('/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: query })
+    });
+    const data = await res.json();
+    
+    if (data.status === 'success' && data.results.length > 0) {
+      let html = `<div class="alert alert-success">Found ${data.count} result(s) for "${data.query}"</div>`;
+      
+      // Group results by prescription
+      const grouped = {};
+      data.results.forEach(r => {
+        if (!grouped[r.prescription_id]) {
+          grouped[r.prescription_id] = {
+            ...r,
+            medicines: []
+          };
+        }
+        grouped[r.prescription_id].medicines.push({
+          name: r.medicine_name,
+          dosage: r.dosage,
+          frequency: r.frequency
+        });
+      });
+      
+      Object.values(grouped).forEach(result => {
+        html += `
+          <div class="card mb-3 shadow-sm">
+            <div class="card-body">
+              <h6 class="text-primary">${result.issue}</h6>
+              <p class="mb-1"><strong>Doctor:</strong> ${result.doctor}</p>
+              <p class="mb-2"><strong>Date:</strong> ${result.date}</p>
+              <p class="mb-2"><strong>Medicines:</strong></p>
+              <ul class="mb-2">
+                ${result.medicines.map(m => `
+                  <li><strong>${m.name}</strong> ${m.dosage ? `- ${m.dosage}` : ''} ${m.frequency ? `- ${m.frequency}` : ''}</li>
+                `).join('')}
+              </ul>
+              <a href="/prescription/${result.prescription_id}" class="btn btn-sm btn-outline-primary">View Details</a>
+            </div>
+          </div>
+        `;
+      });
+      
+      resultsDiv.innerHTML = html;
+    } else {
+      resultsDiv.innerHTML = `<div class="alert alert-warning">No results found for "${data.query}"</div>`;
+    }
+  } catch (error) {
+    resultsDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+  }
+}
+
+// Delete prescription
+async function deletePrescription(prescriptionId) {
+  if (!confirm('Are you sure you want to delete this prescription? This cannot be undone.')) {
+    return;
+  }
+  
+  try {
+    const res = await fetch(`/prescription/${prescriptionId}/delete`, {
+      method: 'POST'
+    });
+    const data = await res.json();
+    
+    if (data.status === 'success') {
+      alert(data.message);
+      location.reload();
+    } else {
+      alert('Error: ' + data.message);
+    }
+  } catch (error) {
+    alert('Error deleting prescription: ' + error.message);
+  }
+}
+
+// Image click to view
+document.querySelectorAll('.prescription-img').forEach(img => {
+  img.addEventListener('click', function() {
+    const prescriptionId = this.getAttribute('data-prescription-id');
+    window.location.href = `/prescription/${prescriptionId}`;
+  });
+});
+
+// Attach delete handlers to buttons (use data-prescription-id)
+document.querySelectorAll('.delete-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const prescriptionId = this.getAttribute('data-prescription-id');
+    deletePrescription(prescriptionId);
+  });
+});
+
+// Search on Enter key
+document.getElementById('aiQuery').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    searchPrescriptions();
+  }
+});
+</script>
+{% endblock %}
